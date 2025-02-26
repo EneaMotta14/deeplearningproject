@@ -1,0 +1,40 @@
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+model = model.to(device)
+preds = []
+all_y = []
+
+# Iterate over the validation DataLoader
+for batch in dataloader_val:
+    # Read data from batch (assuming batch size of 1)
+    x = batch["sequence"].to(device)  # The input sequence tensor
+    mask = batch["mask"].to(device)  # Mask tensor
+    target = batch["labels"].to(device)  # Target tensor (ddG values)
+    
+    # Predict with the model (make sure the input is correctly shaped)
+    prediction = model(x)  # model(x) should give a prediction (batch_size=1, 1 output)
+    
+    # Flatten the predictions and targets where mask == 1
+    # We flatten the results to create one-dimensional vectors for comparison
+    preds.append(prediction[mask == 1].flatten().detach().cpu().numpy())  # Move to CPU and convert to numpy
+    all_y.append(target[mask == 1].flatten().detach().cpu().numpy())  # Move to CPU and convert to numpy
+
+# Concatenate the predictions and true labels into single arrays
+preds = np.concatenate(preds)
+all_y = np.concatenate(all_y)
+
+# Plot the predicted vs. measured ddG values using a regression plot
+sns.regplot(x=preds, y=all_y)
+plt.xlabel("Predicted ddG")
+plt.ylabel("Measured ddG")
+
+# Get RMSE (Root Mean Squared Error)
+rmse = skmetrics.mean_squared_error(all_y, preds)
+print("RMSE:", rmse)
+
+# Calculate Pearson correlation coefficient
+pearson_r, _ = scipy.stats.pearsonr(preds, all_y)
+print("Pearson r:", pearson_r)
+
+# Calculate Spearman correlation coefficient
+spearman_r, _ = scipy.stats.spearmanr(preds, all_y)
+print("Spearman r:", spearman_r)
